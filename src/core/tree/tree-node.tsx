@@ -135,10 +135,14 @@ function DNDTreeNode(props: TYPES.TreeChildProps) {
     },
   });
 
-  function handleClick(e: React.SyntheticEvent) {
+  function handleClick(e: React.SyntheticEvent, treeNode: TYPES.TreeNode) {
     window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
-      onClick?.(e);
+      if (treeNode.children !== undefined) {
+        onClick?.(e);
+      } else {
+        handleDoubleClick(e);
+      }
     }, 200);
   }
 
@@ -151,6 +155,9 @@ function DNDTreeNode(props: TYPES.TreeChildProps) {
     }
     onDoubleClick?.(e);
   }
+
+  function handleNone(e: React.SyntheticEvent) {
+  }  
 
   const handleDragLeave = useCallback(() => {
     setTimeout(() => {
@@ -182,8 +189,8 @@ function DNDTreeNode(props: TYPES.TreeChildProps) {
         [styles.dragging]: isDragging,
         [styles.hover]: hovered && highlighted,
       })}
-      onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
+      onClick={(e) => handleClick(e, data)}
+      onDoubleClick={handleNone}
       onDragLeave={handleDragLeave}
     >
       <TreeNodeContent
