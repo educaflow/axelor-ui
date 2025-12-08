@@ -6,7 +6,9 @@ import { useStyles } from "../styles";
 export interface DecorateProps {
   style?: React.CSSProperties;
   classes?: ClassValue;
-  children: React.ReactElement;
+  children: React.ReactElement<
+    React.HTMLAttributes<HTMLElement> & { ref?: React.Ref<HTMLElement> }
+  >;
 }
 
 /**
@@ -27,7 +29,7 @@ export const Decorate = forwardRef<HTMLElement, DecorateProps>(
       ? { ...props.style, ...children.props?.style }
       : children.props?.style;
 
-    const ref = useRefs(forwardedRef, (children as any).ref);
+    const ref = useRefs(forwardedRef, (children as any)?.props?.ref);
 
     return cloneElement(children, {
       ...children.props,

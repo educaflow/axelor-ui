@@ -35,6 +35,7 @@ export interface GridHeaderColumnProps extends TYPES.GridColumnProps {
   selectionType?: TYPES.GridProps["selectionType"];
   groupBy?: TYPES.GridState["groupBy"];
   columns?: TYPES.GridColumn[];
+  canResize?: boolean;
   renderer?: TYPES.Renderer;
   onGroup?: (e: SyntheticEvent, group: TYPES.GridGroup) => void;
   onUngroup?: (e: SyntheticEvent, group: TYPES.GridGroup) => void;
@@ -103,6 +104,8 @@ export const GridHeaderColumn = React.memo(function GridHeaderColumn(
     index,
     checkType,
     selectionType,
+    groupBy,
+    canResize,
     renderer,
     onCheckAll,
     onSort,
@@ -155,7 +158,11 @@ export const GridHeaderColumn = React.memo(function GridHeaderColumn(
       );
     }
 
-    const canResize = column.name !== "__reorder__" && !column.action;
+    const resizable =
+      canResize && column.name !== "__reorder__" && !column.action;
+    const isGrouped = groupBy?.map((g) => g.name).includes(column.name);
+    const canGroup = onGroup && !isGrouped;
+    const canUnGroup = onUngroup && isGrouped;
     const canSort = onSort && column.sortable !== false;
     const hasMenu =
       !column.action &&
@@ -167,7 +174,7 @@ export const GridHeaderColumn = React.memo(function GridHeaderColumn(
       <>
         <span
           className={classNames(styles.headerColumnTitle, column.$headerCss, {
-            [styles.resizable]: Boolean(onResize),
+            [styles.resizable]: canResize,
           })}
           title={column.help || column.title}
           onClick={(e) => {
@@ -208,7 +215,7 @@ export const GridHeaderColumn = React.memo(function GridHeaderColumn(
           )}
         </span>
 
-        {canResize && onResizeStart && onResize && onResizeEnd ? (
+        {resizable && onResizeStart && onResize && onResizeEnd ? (
           <GridColumResizer
             className={styles.columnResizer}
             draggable={true}
@@ -264,34 +271,42 @@ export const GridHeaderColumn = React.memo(function GridHeaderColumn(
             </>
           )}
 
-          {(onGroup || onUngroup) && (
+          {(canGroup || canUnGroup) && (
             <>
               {canSort && <MenuDivider />}
 
-              <MenuItem
-                onClick={(e: SyntheticEvent) => {
-                  handleHide();
-                  onGroup?.(e, { name: column.name });
-                }}
-              >
-                <Box d="flex" alignItems="center" gap={4}>
-                  <span className={styles.headerColumnMenuIcon} />
-                  {t("Group by")}
-                  <i>{column.title}</i>
-                </Box>
-              </MenuItem>
+              {canGroup && (
+                <>
+                  <MenuItem
+                    onClick={(e: SyntheticEvent) => {
+                      handleHide();
+                      onGroup?.(e, { name: column.name });
+                    }}
+                  >
+                    <Box d="flex" alignItems="center" gap={4}>
+                      <span className={styles.headerColumnMenuIcon} />
+                      {t("Group by")}
+                      <i>{column.title}</i>
+                    </Box>
+                  </MenuItem>
+                </>
+              )}
 
-              <MenuItem
-                onClick={(e: SyntheticEvent) => {
-                  handleHide();
-                  onUngroup?.(e, { name: column.name });
-                }}
-              >
-                <Box d="flex" alignItems="center" gap={4}>
-                  <span className={styles.headerColumnMenuIcon} />
-                  {t("Ungroup")}
-                </Box>
-              </MenuItem>
+              {canUnGroup && (
+                <>
+                  <MenuItem
+                    onClick={(e: SyntheticEvent) => {
+                      handleHide();
+                      onUngroup?.(e, { name: column.name });
+                    }}
+                  >
+                    <Box d="flex" alignItems="center" gap={4}>
+                      <span className={styles.headerColumnMenuIcon} />
+                      {t("Ungroup")}
+                    </Box>
+                  </MenuItem>
+                </>
+              )}
             </>
           )}
 

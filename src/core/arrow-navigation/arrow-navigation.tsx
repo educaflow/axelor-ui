@@ -9,9 +9,10 @@ import {
   isElementDisabled,
   isElementHidden,
 } from "./utils";
+import { WithChildrenProps } from "../system";
 
-export interface ArrowNavigationProps {
-  children: React.ReactElement;
+export interface ArrowNavigationProps<T extends React.ElementType = "div">
+  extends WithChildrenProps<T> {
   enabled?: boolean;
   selector: "auto-horizontal" | "auto-vertical" | (() => HTMLElement[][]);
 }
@@ -23,7 +24,7 @@ const LAYOUT = {
 
 export const ArrowNavigation = React.forwardRef(
   ({ children, enabled = true, selector }: ArrowNavigationProps, ref) => {
-    const nodeRef = React.useRef<HTMLElement>();
+    const nodeRef = React.useRef<HTMLElement>(null);
     const isAutoLayout = [LAYOUT.HORIZONTAL, LAYOUT.VERTICAL].includes(
       selector as string,
     );
@@ -31,7 +32,7 @@ export const ArrowNavigation = React.forwardRef(
     const { dir } = useTheme();
     const rtl = dir === "rtl";
 
-    function handleKeyDown(e: KeyboardEvent) {
+    function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
       // get selector elements
       const elements =
         !isAutoLayout && typeof selector === "function" && selector();
@@ -98,8 +99,7 @@ export const ArrowNavigation = React.forwardRef(
       }
     }
 
-    // @ts-expect-error ref
-    const handleRef = useRefs(ref, children?.ref, nodeRef);
+    const handleRef = useRefs(ref, children?.props?.ref, nodeRef);
 
     return enabled
       ? React.cloneElement(children, {

@@ -77,7 +77,7 @@ function restoreGridSelection(
 
 export const Grid = React.forwardRef<HTMLDivElement, TYPES.GridProps>(
   (props, ref) => {
-    const containerRef = React.useRef<any>();
+    const containerRef = React.useRef<any>(null);
 
     const { className, state, setState, columns, records } = props;
     const {
@@ -1412,7 +1412,8 @@ export const Grid = React.forwardRef<HTMLDivElement, TYPES.GridProps>(
       );
     }, [displayColumns]);
 
-    const hasFooter = hasAggregation && aggregationType === "all";
+    const hasFooter =
+      hasAggregation && aggregationType === "all" && records.length > 0;
     const classNames = useClassNames();
 
     return (
@@ -1449,6 +1450,7 @@ export const Grid = React.forwardRef<HTMLDivElement, TYPES.GridProps>(
             rowRenderer={headerRowRenderer}
             checkType={checkType}
             selectionType={selectionType}
+            canResizeColumns={allowColumnResize}
             {...(allowColumnOptions ? { allColumns: state.columns } : {})}
             {...(allowSearch
               ? {

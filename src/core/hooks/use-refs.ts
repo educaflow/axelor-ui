@@ -1,6 +1,5 @@
 import {
   ForwardedRef,
-  MutableRefObject,
   Ref,
   RefObject,
   useCallback,
@@ -28,11 +27,11 @@ export function useRefs<T>(
 ): MergedRef<MergedRefType<T>> {
   const combinedRef = useCallback(
     (value: T) => {
-      (combinedRef as unknown as MutableRefObject<T>).current = value;
+      (combinedRef as unknown as RefObject<T>).current = value;
       refs.forEach((ref) => {
         if (ref && typeof ref === "function") ref(value);
         if (ref && typeof ref === "object")
-          (ref as MutableRefObject<T>).current = value;
+          (ref as RefObject<T>).current = value;
       });
     },
     [refs],
@@ -47,7 +46,7 @@ export function useRefs<T>(
  * @param ref the ref to keep in sync
  * @returns RefObject<T>
  */
-export function useForwardedRef<T>(ref: ForwardedRef<T>): RefObject<T> {
+export function useForwardedRef<T>(ref: ForwardedRef<T>): RefObject<T | null> {
   const res = useRef<T>(null);
   useEffect(() => {
     if (ref && typeof ref === "function") ref(res.current);
