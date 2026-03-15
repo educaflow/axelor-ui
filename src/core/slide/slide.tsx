@@ -1,6 +1,6 @@
-import { cloneElement, forwardRef, isValidElement } from "react";
+import { cloneElement, forwardRef, isValidElement, useRef } from "react";
 import { Transition } from "react-transition-group";
-import { useForwardedRef } from "../hooks";
+import { useRefs } from "../hooks";
 import { useTheme } from "../styles";
 import { TransitionProps } from "../transitions/types";
 import {
@@ -96,7 +96,8 @@ export const Slide = forwardRef<HTMLElement, SlideProps>(
     ref,
   ) => {
     const { dir } = useTheme();
-    const nodeRef = useForwardedRef<any>(ref);
+    const nodeRef = useRef<HTMLElement | undefined>(undefined);
+    const combinedRef = useRefs(ref, nodeRef);
     const handleEnter = (isAppearing: boolean) => {
       const node: HTMLElement = nodeRef.current!;
       node.style.transform = getTranslateValue(node, direction, dir);
@@ -174,9 +175,11 @@ export const Slide = forwardRef<HTMLElement, SlideProps>(
         {(state) => {
           if (isValidElement(children)) {
             const style = getTransitionStyle(state, styles as any, children);
+            const hidden = state === "exited" || state === "exiting";
             return cloneElement(children as React.ReactElement<any>, {
               style,
-              ref: nodeRef,
+              ref: combinedRef,
+              "aria-hidden": hidden ? true : undefined,
             });
           }
         }}

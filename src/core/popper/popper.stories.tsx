@@ -27,7 +27,13 @@ export const Basic = () => {
       <Button variant="primary" ref={setTargetEl} onClick={toggle}>
         Button
       </Button>
-      <Popper open={open} target={targetEl} offset={[0, 4]}>
+      <Popper
+        data-testid="popper"
+        open={open}
+        target={targetEl}
+        offset={[0, 4]}
+        role={"dialog"}
+      >
         <Box p={2}>The content of the Popper.</Box>
       </Popper>
     </Box>
@@ -45,7 +51,14 @@ export const Dropdown = () => {
       <Button variant="primary" ref={setTargetEl} onClick={toggle}>
         Button
       </Button>
-      <Popper open={open} target={targetEl} offset={[0, 4]} arrow>
+      <Popper
+        data-testid="popper"
+        open={open}
+        target={targetEl}
+        offset={[0, 4]}
+        arrow
+        role={"menu"}
+      >
         <ul
           className={classNames(
             "dropdown-menu show border-0 rounded-0 position-static bg-transparent",
@@ -84,18 +97,28 @@ function Example({ event, interactive }: any) {
       <Button textTransform="capitalize" variant="primary" ref={setTargetEl}>
         {event}
       </Button>
-      <ClickAwayListener onClickAway={onClickAway}>
-        <Popper open={open} target={targetEl} offset={[0, 4]}>
+      <Popper
+        data-testid="popper"
+        open={open}
+        target={targetEl}
+        offset={[0, 4]}
+        role={"dialog"}
+      >
+        <ClickAwayListener onClickAway={onClickAway}>
           <Box p={2} ref={setContentEl} style={{ width: 320 }}>
             <Box as="h4">Personal Information</Box>
             <Input mt={1} placeholder="First Name" />
             <Input mt={1} placeholder="Last Name" />
-            <Button mt={1} variant="primary">
+            <Button
+              mt={1}
+              variant="primary"
+              onClick={(e) => onClickAway(e.nativeEvent)}
+            >
               Save
             </Button>
           </Box>
-        </Popper>
-      </ClickAwayListener>
+        </ClickAwayListener>
+      </Popper>
     </Box>
   );
 }
@@ -113,7 +136,7 @@ export const Hook = () => {
           <Input
             type="checkbox"
             checked={interactive}
-            onClick={() => setInteractive((checked) => !checked)}
+            onChange={() => setInteractive((checked) => !checked)}
           />{" "}
           Interactive
         </InputLabel>
@@ -150,6 +173,7 @@ export const Placement = () => {
   return (
     <Box style={{ width: 500 }} m="auto" pt={5}>
       <Popper
+        data-testid="popper"
         target={targetEl}
         open={open}
         placement={placement}
@@ -157,6 +181,7 @@ export const Placement = () => {
         arrow
         shadow
         rounded
+        role={"dialog"}
       >
         <Box p={3}>The content of the Popper.</Box>
       </Popper>
@@ -208,11 +233,13 @@ export const Transition = () => {
         Button
       </Button>
       <Popper
+        data-testid="popper"
         open={open}
         target={targetEl}
         transition={Grow}
         offset={[0, 4]}
         arrow
+        role={"dialog"}
       >
         <Box p={2}>The content of the Popper.</Box>
       </Popper>

@@ -13,14 +13,15 @@ import { ArrowNavigation } from "../arrow-navigation";
 import { isElementDisabled, isElementHidden } from "../arrow-navigation/utils";
 import { Box } from "../box";
 import { Button } from "../button";
+import { useRefs } from "../hooks";
 import { Menu as AxMenu } from "../menu/menu";
 import { MenuItem as AxMenuItem } from "../menu/menu-item";
+import { Portal } from "../portal";
 import { withStyled } from "../styled";
 import { useClassNames, useTheme } from "../styles";
+import { findDataProp, makeTestId } from "../system/utils";
 import { tryFocus } from "./utils";
 
-import { useForwardedRef } from "../hooks";
-import { Portal } from "../portal";
 import styles from "./menubar.module.scss";
 
 const MenubarContext = React.createContext<any>({});
@@ -175,6 +176,7 @@ function Menu({
   }, [showProp]);
 
   const classNames = useClassNames();
+  const testId = findDataProp(rest, "data-testid");
 
   return (
     <>
@@ -186,6 +188,7 @@ function Menu({
           className={classNames(styles.btn, {
             [styles["active-btn"]]: show || showProp,
           })}
+          data-testid={makeTestId(testId, testId, "button")}
         >
           {text}
         </Button>
@@ -368,6 +371,7 @@ function MenuItem({
         endIcon={rtl ? BiCaretLeftFill : BiCaretRightFill}
         onMouseEnter={handleItemMouseEnter}
       />
+      {/* eslint-disable-next-line react-hooks/refs */}
       <Portal container={menubarRef.current}>
         <Menu
           target={target}
@@ -464,7 +468,8 @@ export const Menubar = withStyled(Box)((props, ref) => {
     [rtl, showNext, showPrevious, hideMenu],
   );
 
-  const menubarRef = useForwardedRef<HTMLDivElement>(ref);
+  const menubarRef = useRef<HTMLDivElement>(null);
+  const combinedRef = useRefs(ref, menubarRef);
   const value = useMemo(
     () => ({ rtl, menubarRef, hideMenu }),
     [rtl, menubarRef, hideMenu],
@@ -473,7 +478,7 @@ export const Menubar = withStyled(Box)((props, ref) => {
   return (
     <MenubarContext.Provider value={value}>
       <ArrowNavigation selector="auto-horizontal">
-        <Box ref={menubarRef} d="flex" {...props}>
+        <Box ref={combinedRef} d="flex" {...props}>
           {beforeElements}
           {menus.map((menu: any) => {
             const { text, onShow, onHide } = menu.props;

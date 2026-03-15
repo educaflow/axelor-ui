@@ -7,7 +7,7 @@ import {
   Placement,
   useFloating,
 } from "@floating-ui/react";
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 
 import { Box } from "../box";
 import { Fade } from "../fade";
@@ -18,7 +18,20 @@ import { useClassNames, useTheme } from "../styles";
 import { TBackground, TForeground } from "../system";
 import { TransitionProps } from "../transitions";
 
+import { useRefs } from "../hooks";
 import styles from "./popper.module.css";
+
+export type PopperRole =
+  | "tooltip"
+  | "dialog"
+  | "alertdialog"
+  | "menu"
+  | "listbox"
+  | "alert"
+  | "status"
+  | "group"
+  | "region"
+  | "presentation";
 
 export type PopperPlacement =
   | "top"
@@ -47,7 +60,7 @@ export interface PopperProps {
   shadow?: boolean;
   rounded?: boolean;
   border?: boolean;
-  role?: string;
+  role?: PopperRole;
   bg?: TBackground;
   color?: TForeground;
   transition?:
@@ -112,115 +125,126 @@ function PopperInner(props: PopperProps) {
       onEnter={handleEnter}
       onExited={handleExited}
     >
-      <div>
-        <PopperElement {...rest} />
-      </div>
+      <PopperElement {...rest} open={open} />
     </Transition>
   );
 }
 
-function PopperElement({
-  target,
-  placement: popperPlacement = "bottom",
-  offset,
-  strategy = "absolute",
-  className,
-  arrow,
-  rounded = true,
-  shadow = true,
-  border = true,
-  role = "tooltip",
-  bg = "body",
-  color = "body",
-  children,
-  contentClassName,
-  ...props
-}: PopperProps) {
-  const { dir } = useTheme();
-  const classNames = useClassNames();
-
-  const placement = PlacementMapping[popperPlacement];
-  const [skidding = 0, distance = 0] = offset || [];
-  const arrowPadding = arrow ? 8.5 : 0; // match with .arrow diagonal (12 * Math.sqrt(2) / 2)
-
-  const arrowRef = useRef<HTMLSpanElement | null>(null);
-  const {
-    x,
-    y,
-    refs,
-    middlewareData,
-    strategy: floatingStrategy,
-    placement: currentPlacement,
-  } = useFloating({
-    whileElementsMounted: (referenceEl, floatingEl, update) => {
-      return autoUpdate(referenceEl, floatingEl, update);
+const PopperElement = forwardRef<HTMLDivElement, PopperProps>(
+  function PopperElement(
+    {
+      open,
+      target,
+      placement: popperPlacement = "bottom",
+      offset,
+      strategy = "absolute",
+      className,
+      arrow,
+      rounded = true,
+      shadow = true,
+      border = true,
+      role,
+      bg = "body",
+      color = "body",
+      children,
+      contentClassName,
+      ...props
     },
-    placement,
-    strategy,
-    middleware: [
-      offsetMiddleware({
-        mainAxis: distance + arrowPadding,
-        crossAxis: skidding,
-      }),
-      flip(),
-      hide(),
-      ...(arrow ? [arrowMiddleware({ element: arrowRef })] : []),
-    ],
-  });
+    ref,
+  ) {
+    const { dir } = useTheme();
+    const classNames = useClassNames();
 
-  useEffect(() => {
-    if (target) {
-      refs.setReference(target);
-    }
-  }, [target, refs]);
+    const placement = PlacementMapping[popperPlacement];
+    const [skidding = 0, distance = 0] = offset || [];
+    const arrowPadding = arrow ? 8.5 : 0; // match with .arrow diagonal (12 * Math.sqrt(2) / 2)
 
-  const side = currentPlacement.split("-")[0];
+    const arrowRef = useRef<HTMLSpanElement | null>(null);
+    const {
+      x,
+      y,
+      refs,
+      middlewareData,
+      strategy: floatingStrategy,
+      placement: currentPlacement,
+    } = useFloating({
+      whileElementsMounted: (referenceEl, floatingEl, update) => {
+        return autoUpdate(referenceEl, floatingEl, update);
+      },
+      placement,
+      strategy,
+      middleware: [
+        offsetMiddleware({
+          mainAxis: distance + arrowPadding,
+          crossAxis: skidding,
+        }),
+        flip(),
+        hide(),
+        // eslint-disable-next-line react-hooks/refs
+        ...(arrow ? [arrowMiddleware({ element: arrowRef })] : []),
+      ],
+    });
 
-  const staticSide = {
-    top: "bottom",
-    right: "left",
-    bottom: "top",
-    left: "right",
-  }[side] as string;
+    useEffect(() => {
+      if (target) {
+        refs.setReference(target);
+      }
+    }, [target, refs]);
 
-  return (
-    <div
-      ref={refs.setFloating}
-      className={classNames(styles.popper, className, {
-        "drop-shadow-md": shadow,
-        [styles.border]: border,
-      })}
-      data-popper-placement={currentPlacement}
-      {...(dir === "rtl" ? { dir: "rtl" } : {})}
-      {...props}
-      style={{ position: floatingStrategy, top: y ?? "", left: x ?? "" }}
-    >
-      <Box
-        className={styles.wrapper}
-        role={role}
-        bg={bg}
-        color={color}
-        rounded={rounded}
+    const handleRef = useRefs(
+      ref,
+      refs.setFloating,
+    ) as React.RefCallback<HTMLDivElement>;
+    const side = currentPlacement.split("-")[0];
+
+    const staticSide = {
+      top: "bottom",
+      right: "left",
+      bottom: "top",
+      left: "right",
+    }[side] as string;
+
+    return (
+      <div
+        ref={handleRef}
+        className={classNames(styles.popper, className, {
+          "drop-shadow-md": shadow,
+          [styles.border]: border,
+        })}
+        data-popper-placement={currentPlacement}
+        {...(dir === "rtl" ? { dir: "rtl" } : {})}
+        {...props}
+        style={{ position: floatingStrategy, top: y ?? "", left: x ?? "" }}
+        aria-hidden={!open}
       >
-        <div className={contentClassName}>{children}</div>
-        {arrow && (
-          <span
-            ref={arrowRef}
-            className={clsx(
-              "AxPopper_arrow",
-              styles.arrow,
-              styles[`${staticSide}-arrow`],
-            )}
-            style={{
-              left: middlewareData?.arrow?.x ?? "",
-              top: middlewareData?.arrow?.y ?? "",
-              right: "",
-              bottom: "",
-              [staticSide]: `${-(arrowRef?.current?.offsetWidth ?? 0) / 2}px`,
-            }}
-          />
-        )}
-      </Box>
-    </div>
-  );
-}
+        <Box
+          className={styles.wrapper}
+          role={role}
+          bg={bg}
+          color={color}
+          rounded={rounded}
+        >
+          <div className={contentClassName}>{children}</div>
+          {arrow && (
+            <span
+              ref={arrowRef}
+              className={clsx(
+                "AxPopper_arrow",
+                styles.arrow,
+                styles[`${staticSide}-arrow`],
+              )}
+              aria-hidden="true"
+              style={{
+                left: middlewareData?.arrow?.x ?? "",
+                top: middlewareData?.arrow?.y ?? "",
+                right: "",
+                bottom: "",
+                [staticSide]: `${-(arrowRef?.current?.offsetWidth ?? 0) / 2}px`, // eslint-disable-line react-hooks/refs
+              }}
+            />
+          )}
+        </Box>
+      </div>
+    );
+  },
+);

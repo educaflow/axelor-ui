@@ -28,8 +28,10 @@ import {
 
 import { MaterialIcon } from "../../icons/material-icon";
 import { Badge } from "../badge";
+import { Button } from "../button";
 import { clsx } from "../clsx";
 import { useControlled, useRefs } from "../hooks";
+import { findDataProp, makeTestId } from "../system/utils";
 
 import styles from "./select.module.scss";
 
@@ -41,7 +43,9 @@ export type SelectValue<Type, Multiple extends boolean> =
 export type SelectIcon = {
   key?: string | number;
   icon: React.ReactNode;
-  onClick?: React.MouseEventHandler<HTMLDivElement>;
+  title?: string;
+  htmlProps?: React.HTMLAttributes<HTMLElement> & { color?: never };
+  onClick?: React.MouseEventHandler<HTMLElement>;
 };
 
 export type SelectRefHandler = {
@@ -156,6 +160,8 @@ export const Select = forwardRef(function Select<
     inputStartAdornment,
     inputEndAdornment,
   } = props;
+
+  const testId = findDataProp(props, "data-testid");
 
   const [value, setValue] = useControlled({
     name: "Select",
@@ -334,14 +340,64 @@ export const Select = forwardRef(function Select<
     [handleOpen, multiple, onInputChange, updateValue],
   );
 
-  const handleInputKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLInputElement>) => {
-      if (open && event.key === "Tab") {
-        startTransition(() => handleClose());
+  const handleRootKeyDownOpen = useCallback(
+    (event: React.KeyboardEvent<HTMLElement>, isTargetRoot?: boolean) => {
+      if (
+        event.key === "ArrowUp" ||
+        event.key === "ArrowDown" ||
+        (isTargetRoot && event.key === " ")
+      ) {
+        event.preventDefault();
+        handleOpen();
+        return true;
       }
+      return false;
+    },
+    [handleOpen],
+  );
+
+  const handleRootKeyDownInput = useCallback(
+    (event: React.KeyboardEvent<HTMLElement>) => {
       if (event.key === "Escape" && clearOnEscape) {
         resetInput();
+        return;
       }
+
+      // delete the last item from the selection
+      if (multiple && event.key === "Backspace") {
+        if (inputValue) return;
+        if (Array.isArray(value)) {
+          const values = value.slice(0, -1);
+          const next = values.length
+            ? (values as SelectValue<Type, Multiple>)
+            : null;
+          setValue(next);
+          onChange?.(next);
+        }
+      }
+    },
+    [
+      clearOnEscape,
+      inputValue,
+      multiple,
+      onChange,
+      resetInput,
+      setValue,
+      value,
+    ],
+  );
+
+  const handleRootKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const isTargetRoot = event.target === event.currentTarget;
+
+      if (!open && handleRootKeyDownOpen(event, isTargetRoot)) return;
+
+      if (open && event.key === "Tab") {
+        startTransition(() => handleClose());
+        return;
+      }
+
       if (event.key === "Enter" && activeIndex !== null) {
         event.preventDefault();
         const option = items[activeIndex];
@@ -349,50 +405,37 @@ export const Select = forwardRef(function Select<
           updateValue(option);
         } else {
           // custom option
-          const ref = listRef.current[activeIndex];
-          if (ref) {
+          const activeRef = listRef.current[activeIndex];
+          if (activeRef) {
             handleClose();
-            ref.click();
+            activeRef.click();
           }
         }
-      }
-
-      // delete the last item from the selection
-      if (multiple && event.key === "Backspace") {
-        if (inputValue) return;
-        if (Array.isArray(value)) {
-          const items = value.slice(0, value.length - 1);
-          const next = items.length
-            ? (items as SelectValue<Type, Multiple>)
-            : null;
-          setValue(next);
-          onChange?.(next);
-          return;
-        }
+        return;
       }
 
       if (
-        (event.key === "Backspace" && removeOnBackspace) ||
-        (event.key === "Delete" && removeOnDelete)
+        ((!multiple && event.key === "Backspace" && removeOnBackspace) ||
+          (event.key === "Delete" && removeOnDelete)) &&
+        !isEmpty(value) &&
+        (!multiple || !inputValue)
       ) {
-        if (isEmpty(value)) return;
-        if (multiple && inputValue) return;
         event.preventDefault();
         setValue(null);
         onChange?.(null);
+        return;
       }
 
-      if (open) return;
-      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-        event.preventDefault();
-        handleOpen();
+      if (autoComplete || !isTargetRoot) {
+        handleRootKeyDownInput(event);
       }
     },
     [
       activeIndex,
-      clearOnEscape,
+      autoComplete,
       handleClose,
-      handleOpen,
+      handleRootKeyDownInput,
+      handleRootKeyDownOpen,
       inputValue,
       items,
       multiple,
@@ -400,40 +443,20 @@ export const Select = forwardRef(function Select<
       open,
       removeOnBackspace,
       removeOnDelete,
-      resetInput,
       setValue,
       updateValue,
       value,
     ],
   );
 
-  const handleRootKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (autoComplete) return;
-      if (event.target !== event.currentTarget) return;
-      if (event.key === "Enter" && activeIndex !== null) {
-        event.preventDefault();
-        const option = items[activeIndex];
-        if (option) {
-          updateValue(option);
-        }
-      }
-      if (open) return;
-      if (
-        event.key === "ArrowUp" ||
-        event.key === "ArrowDown" ||
-        event.key === " "
-      ) {
-        event.preventDefault();
-        handleOpen();
-      }
-    },
-    [activeIndex, autoComplete, handleOpen, items, open, updateValue],
-  );
-
   const rootRef = useRefs(ref, refs.setReference);
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+
+  const [focusOnTab, setFocusOnTab] = useState(false);
+  const [focusOnce, setFocusOnce] = useState(true);
+  const [focusNow, setFocusNow] = useState(false);
 
   const handleToggleClick = useCallback(() => {
     if (readOnly || disabled) return;
@@ -476,10 +499,6 @@ export const Select = forwardRef(function Select<
       readOnly,
     ],
   );
-
-  const [focusOnTab, setFocusOnTab] = useState(false);
-  const [focusOnce, setFocusOnce] = useState(true);
-  const [focusNow, setFocusNow] = useState(false);
 
   const hasOptions = options.length + (customOptions?.length ?? 0) > 0;
   const hasDropdownOpen = open && hasOptions;
@@ -553,25 +572,69 @@ export const Select = forwardRef(function Select<
     };
   }, [props.clearIcon, handleClearClick]);
 
+  const canClear =
+    clearIcon &&
+    [value].flat().filter(Boolean).length > 0 &&
+    !readOnly &&
+    !disabled;
+
+  const notValid = useMemo(() => {
+    if (invalid) return true;
+    if (value) return false;
+    if (required) return true;
+    return false;
+  }, [required, invalid, value]);
+
   const renderMultiple = useCallback(() => {
     const items = value as Type[] | null;
     return items?.map((item) => {
+      const key = optionKey(item);
       return (
-        <div key={optionKey(item)} className={styles.tag}>
+        <div
+          key={key}
+          className={styles.tag}
+          data-testid={makeTestId(testId, "tag", key)}
+        >
           {!!renderValue && renderValue({ option: item })}
           {!!renderValue || (
-            <Badge
-              bg="secondary"
-              key={optionKey(item)}
-              className={styles.badge}
-            >
+            <Badge bg="secondary" key={key} className={styles.badge}>
               {optionLabel(item)}
             </Badge>
           )}
         </div>
       );
     });
-  }, [optionKey, optionLabel, renderValue, value]);
+  }, [optionKey, optionLabel, renderValue, value, testId]);
+
+  useImperativeHandle(
+    selectRef,
+    () => ({
+      isOpen: () => Boolean(open),
+      open: handleOpen,
+      close: handleClose,
+    }),
+    [open, handleOpen, handleClose],
+  );
+
+  /* eslint-disable react-hooks/refs -- rootRef is a forwarded ref passed to
+   * getReferenceProps for floating-ui positioning; it must remain a ref, not
+   * state, because floating-ui owns the ref merging internally. */
+  const referenceProps = !readOnly
+    ? getReferenceProps({
+        ref: rootRef,
+        tabIndex: autoComplete || disabled ? undefined : 0,
+        onClick: handleRootClick,
+        onKeyDown: handleRootKeyDown,
+        onKeyUp: handleRootKeyUp,
+        onFocus: autoComplete ? undefined : handleFocus,
+        onBlur: autoComplete ? undefined : handleBlur,
+      })
+    : undefined;
+  /* eslint-enable react-hooks/refs */
+
+  const activeDescendant = autoComplete
+    ? (referenceProps?.["aria-activedescendant"] as string | undefined)
+    : undefined;
 
   const renderSelector = useCallback(() => {
     const shouldShowEmptyBox = readOnly && isEmpty(value);
@@ -591,9 +654,16 @@ export const Select = forwardRef(function Select<
               ? undefined
               : placeholder
           }
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          aria-controls={listboxId}
+          aria-haspopup="listbox"
+          aria-activedescendant={activeDescendant}
+          aria-invalid={notValid ? true : undefined}
+          data-testid={makeTestId(testId, "input")}
           {...(!readOnly && {
             onChange: handleInputChange,
-            onKeyDown: handleInputKeyDown,
             onFocus: handleFocus,
             onBlur: handleBlur,
           })}
@@ -603,17 +673,25 @@ export const Select = forwardRef(function Select<
     if (multiple) return null;
     if (value) {
       return (
-        <div className={styles.value}>
+        <div className={styles.value} data-testid={makeTestId(testId, "value")}>
           {!!renderValue && renderValue({ option: value as Type })}
           {!!renderValue || optionLabel(value as Type)}
         </div>
       );
     }
     if (placeholder) {
-      return <span className={styles.placeholder}>{placeholder}</span>;
+      return (
+        <span
+          className={styles.placeholder}
+          data-testid={makeTestId(testId, "placeholder")}
+        >
+          {placeholder}
+        </span>
+      );
     }
     return null;
   }, [
+    activeDescendant,
     autoComplete,
     multiple,
     value,
@@ -624,36 +702,16 @@ export const Select = forwardRef(function Select<
     readOnly,
     disabled,
     handleInputChange,
-    handleInputKeyDown,
     handleFocus,
     handleBlur,
     renderValue,
     optionLabel,
+    testId,
+    listboxId,
+    notValid,
+    open,
   ]);
-
-  const canClear =
-    clearIcon &&
-    [value].flat().filter(Boolean).length > 0 &&
-    !readOnly &&
-    !disabled;
-
-  const notValid = useMemo(() => {
-    if (invalid) return true;
-    if (value) return false;
-    if (required) return true;
-    return false;
-  }, [required, invalid, value]);
-
-  useImperativeHandle(
-    selectRef,
-    () => ({
-      isOpen: () => Boolean(open),
-      open: handleOpen,
-      close: handleClose,
-    }),
-    [open, handleOpen, handleClose],
-  );
-
+  
   return (
     <>
       <div
@@ -667,49 +725,81 @@ export const Select = forwardRef(function Select<
         autoFocus={autoComplete ? undefined : autoFocus}
         aria-disabled={disabled ? true : undefined}
         aria-readonly={readOnly ? true : undefined}
-        {...(!readOnly &&
-          getReferenceProps({
-            ref: rootRef,
-            tabIndex: autoComplete || disabled ? undefined : 0,
-            onClick: handleRootClick,
-            onKeyDown: handleRootKeyDown,
-            onKeyUp: handleRootKeyUp,
-            onFocus: autoComplete ? undefined : handleFocus,
-            onBlur: autoComplete ? undefined : handleBlur,
-          }))}
+        aria-invalid={notValid ? true : undefined}
+        aria-required={required ? true : undefined}
+        data-testid={testId}
+        {...referenceProps}
+        {...(autoComplete
+          ? {
+              role: undefined,
+              "aria-expanded": undefined,
+              "aria-haspopup": undefined,
+              "aria-controls": undefined,
+              "aria-activedescendant": undefined,
+              "aria-autocomplete": undefined,
+            }
+          : {
+              "aria-expanded": open,
+              "aria-haspopup": "listbox" as const,
+              "aria-controls": listboxId,
+            })}
       >
         <div ref={contentRef} className={styles.content}>
           {inputStartAdornment}
           {multiple && renderMultiple()}
           {renderSelector()}
         </div>
-        <div tabIndex={-1} className={styles.actions} onClick={handleClose}>
+        <div
+          tabIndex={-1}
+          className={styles.actions}
+          onClick={handleClose}
+          data-testid={makeTestId(testId, "actions")}
+        >
           {inputEndAdornment}
           {canClear && (
-            <div
+            <Button
+              type="button"
+              variant="link"
+              tabIndex={-1}
+              title={clearIcon.title}
               className={clsx(styles.action, styles.clearIcon)}
               onClick={clearIcon.onClick}
+              data-testid={makeTestId(testId, "clear")}
+              {...clearIcon.htmlProps}
             >
               {clearIcon.icon}
-            </div>
+            </Button>
           )}
-          {icons.map(({ key, icon, onClick }, index) => (
-            <div
+          {icons.map(({ key, icon, title, htmlProps, onClick }, index) => (
+            <Button
               key={key ?? index}
+              type="button"
+              variant="link"
+              tabIndex={-1}
+              title={title}
               data-index={index}
               className={clsx(styles.action)}
               onClick={onClick}
+              data-testid={makeTestId(testId, "icon", key ?? index)}
+              {...htmlProps}
             >
               {icon}
-            </div>
+            </Button>
           ))}
           {toggleIcon && (
-            <div
+            <Button
+              type="button"
+              variant="link"
+              tabIndex={-1}
+              title={toggleIcon.title}
+              aria-expanded={open}
               className={clsx(styles.action, styles.toggleIcon)}
               onClick={toggleIcon.onClick}
+              data-testid={makeTestId(testId, "toggle")}
+              {...toggleIcon.htmlProps}
             >
               {toggleIcon.icon}
-            </div>
+            </Button>
           )}
         </div>
       </div>
@@ -726,8 +816,16 @@ export const Select = forwardRef(function Select<
                 ref: refs.setFloating,
                 className: styles.list,
                 style: floatingStyles,
+                role: "listbox",
+                id: listboxId,
+                "aria-label": placeholder || "Select options",
               })}
+              data-testid={makeTestId(testId, "list")}
             >
+              {/* eslint-disable react-hooks/refs -- listRef.current[index] is
+                  intentionally mutated inside callback refs passed to
+                  floating-ui's getItemProps; the array is a non-reactive
+                  lookup table for DOM nodes, not reactive state. */}
               {items.map((item, index) => {
                 const { key, ...itemProps } = getItemProps({
                   key: optionKey(item),
@@ -744,6 +842,7 @@ export const Select = forwardRef(function Select<
                     {...itemProps}
                     active={activeIndex === index}
                     selected={!multiple && selectedIndex === index}
+                    data-testid={makeTestId(testId, "option", optionKey(item))}
                   >
                     {!!renderOption || optionLabel(item)}
                     {!!renderOption &&
@@ -774,10 +873,12 @@ export const Select = forwardRef(function Select<
                   active={
                     !item.disabled && activeIndex === items.length + index
                   }
+                  data-testid={makeTestId(testId, "custom-option", item.key)}
                 >
                   {item.title}
                 </SelectItem>
               ))}
+              {/* eslint-enable react-hooks/refs */}
             </div>
           </FloatingFocusManager>
         </FloatingPortal>
@@ -804,7 +905,8 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
         ref={ref}
         role="option"
         id={id}
-        aria-selected={active}
+        aria-selected={selected !== undefined ? selected : active}
+        aria-current={active ? "true" : undefined}
         className={clsx(className, styles.option, {
           [styles.active]: active,
           [styles.selected]: selected,

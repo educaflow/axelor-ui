@@ -2,19 +2,17 @@
  * @title Editable
  */
 import React from "react";
-import { HTML5Backend } from "react-dnd-html5-backend";
 import { DndProvider } from "react-dnd";
-import { Tree } from "../tree";
+import { HTML5Backend } from "react-dnd-html5-backend";
 import { Input } from "../../input";
 import { useClassNames } from "../../styles";
+import { Tree } from "../tree";
 import records from "./data";
 
 const columns = [
   { name: "title", title: "Title", type: "String" },
   { name: "progress", title: "Progress", type: "String" },
 ];
-
-const FormHandlers = React.createContext(React.createRef<any>());
 
 function FormField({
   className,
@@ -73,9 +71,8 @@ function FormField({
   return <div {...{ style: { flex: 1 }, className }}>{render()}</div>;
 }
 
-function Form({ node, index, columns, onSave, onCancel }: any) {
+function Form({ node, index, columns, onSave, onCancel, ...rest }: any) {
   const values = React.useRef({ ...node.data });
-  const handlers = React.useContext(FormHandlers);
   const dirty = React.useRef(false);
 
   const handleChange = React.useCallback((name: string, value: any) => {
@@ -103,12 +100,8 @@ function Form({ node, index, columns, onSave, onCancel }: any) {
     );
   }, [onSave, index, node]);
 
-  React.useEffect(() => {
-    handlers.current && (handlers.current.save = handleSave);
-  }, [handlers, handleSave]);
-
   return (
-    <div style={{ display: "flex" }}>
+    <div style={{ display: "flex" }} {...rest}>
       {columns.map((column: any, index: number) => (
         <FormField
           focus={index === 0}

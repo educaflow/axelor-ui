@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { useTheme, useClassNames, Box } from "../core";
 import { useDrop } from "react-dnd";
 
-import * as TYPES from "./types";
+import { Box, useClassNames, useTheme } from "../core";
+import { findDataProp } from "../core/system/utils";
 import { CONFIG } from "./utils";
+
+import * as TYPES from "./types";
+
 import classes from "./gantt.module.scss";
 
 const { DND_TYPES } = CONFIG;
@@ -35,7 +38,7 @@ const GanttRows = React.memo(function GanttRows({
     <>
       {columns.map((item, ind) => {
         const style = { left, width: item.width };
-        left += item.width;
+        left += item.width; // eslint-disable-line react-hooks/immutability
         return (
           <div key={ind} className={classes["ganttColumn"]} style={style}>
             <Box color="secondary" className={classes["ganttColumnTitle"]}>
@@ -58,20 +61,17 @@ const GanttRows = React.memo(function GanttRows({
   );
 });
 
-export function GanttBody({
-  totalRecords,
-  activeRowIndex,
-  children,
-  items,
-}: {
+export function GanttBody(props: {
   totalRecords: number;
   activeRowIndex: number;
   children: React.ReactElement | React.ReactElement[];
   items: TYPES.GanttHeaderItem[];
 }) {
-  const bodyRef = React.useRef<HTMLDivElement>(null);
+  const { totalRecords, activeRowIndex, children, items } = props;
+  const [body, setBody] = React.useState<HTMLDivElement | null>(null);
   const { dir } = useTheme();
   const rtl = dir === "rtl";
+  const testId = findDataProp(props, "data-testid");
 
   const [, drop] = useDrop({
     accept: [
@@ -201,10 +201,12 @@ export function GanttBody({
     }),
   });
 
-  drop(bodyRef);
+  useEffect(() => {
+    drop(body);
+  }, [body, drop]);
 
   return (
-    <div ref={bodyRef} className={classes.ganttBody}>
+    <div ref={setBody} className={classes.ganttBody} data-testid={testId}>
       <GanttRows
         activeRowIndex={activeRowIndex}
         items={items}

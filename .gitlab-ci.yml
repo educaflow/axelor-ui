@@ -5,12 +5,12 @@ stages:
 cache: &global_cache
   key: $CI_COMMIT_REF_SLUG
   paths:
-    - node_modules/.pnpm
+    - node_modules
   policy: pull-push
 
 build_package:
   stage: build
-  image: node:22.17-bullseye
+  image: node:24.13.1-bullseye
   cache:
     <<: *global_cache
   artifacts:
@@ -27,7 +27,7 @@ build_package:
       
 publish_to_npm:
   stage: publish
-  image: node:22.17-bullseye
+  image: node:24.13.1-bullseye
   cache:
     <<: *global_cache
     policy: pull
@@ -37,4 +37,5 @@ publish_to_npm:
     - tags
   script:
     - npm config set -- '//registry.npmjs.org/:_authToken' "${NPMJS_TOKEN}"
-    - (cd dist && npm publish --access public)
+    - NPM_TAG=$(node scripts/get-tag.js)
+    - (cd dist && npm publish --access public --tag $NPM_TAG)

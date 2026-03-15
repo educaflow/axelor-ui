@@ -38,6 +38,7 @@ function Form({
   onCancel,
   index,
   data,
+  ...rest
 }: any) {
   const values = React.useRef({ ...data.record });
   const handlers = React.useContext(FormHandlers);
@@ -79,9 +80,10 @@ function Form({
 
   React.useEffect(() => {
     const _handlers = handlers;
-    _handlers.current && (_handlers.current.save = handleSave);
+    if (!_handlers.current) return;
+    _handlers.current.setSave(handleSave);
     return () => {
-      _handlers.current && (_handlers.current.save = null);
+      _handlers.current.setSave(null);
     };
   }, [handlers, handleSave]);
 
@@ -98,7 +100,7 @@ function Form({
       )}
     >
       <FocusTrap>
-        <div {...{ style, className, children }} />
+        <div {...rest} {...{ style, className, children }} />
       </FocusTrap>
     </FormContext.Provider>
   );
@@ -152,7 +154,14 @@ function FormField({ children, style, className, ...rest }: any) {
     initRef.current = true;
   }, [onChange, name, value]);
 
-  return <div {...{ style, className }}>{render()}</div>;
+  // Extract data-testid from rest if present
+  const testId = (rest as any)["data-testid"];
+
+  return (
+    <div {...{ style, className }} data-testid={testId}>
+      {render()}
+    </div>
+  );
 }
 
 export default function Editable() {
@@ -161,6 +170,9 @@ export default function Editable() {
   const boxRef = React.useRef<any>(null);
   const handlers = React.useRef({
     save: (e: boolean) => {},
+    setSave: (fn: any) => {
+      handlers.current.save = fn;
+    },
   });
 
   const handleRecordAdd = React.useCallback(() => {
@@ -219,7 +231,7 @@ export default function Editable() {
             allowCheckboxSelection
             allowCellSelection
             sortType="state"
-            addNewText={<Button variant="link">Add new line...</Button>}
+            addNewText={<Button variant="link" tabIndex={0}>Add new line...</Button>}
             selectionType="multiple"
             records={$records}
             columns={columns}
@@ -231,6 +243,7 @@ export default function Editable() {
             onRecordEdit={handleRecordEdit}
             onRecordSave={handleRecordSave}
             onRecordDiscard={handleRecordDiscard}
+            data-testid="grid"
           />
         </Box>
       </FormHandlers.Provider>
